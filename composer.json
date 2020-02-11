@@ -29,6 +29,7 @@
         "amphp/sync": "^1.0.1"
     },
     "require-dev": {
+        "jelix/fakeserverconf": "^1.0",
         "phpunit/phpunit": "^8 || ^7",
         "amphp/phpunit-util": "^1.1",
         "amphp/php-cs-fixer-config": "dev-master"

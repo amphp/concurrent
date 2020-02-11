@@ -115,10 +115,12 @@ abstract class AbstractContextTest extends AsyncTestCase
         $this->expectException(ContextException::class);
         $this->expectExceptionMessage('Failed to receive result');
 
-        $context = $this->createContext([
+        $context = $this->createContext(
+            [
                 __DIR__ . "/Fixtures/sleep-process.php",
                 5,
-            ]);
+            ]
+        );
         yield $context->start();
         yield new Delayed(100);
         $promise = $context->join();
