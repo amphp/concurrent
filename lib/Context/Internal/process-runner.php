@@ -17,8 +17,8 @@ if (\function_exists("cli_set_process_title")) {
 
 (function (): void {
     $paths = [
-        \dirname(__DIR__, 5) . "/autoload.php",
-        \dirname(__DIR__, 3) . "/vendor/autoload.php",
+        \dirname(__DIR__, 5)."/autoload.php",
+        \dirname(__DIR__, 3)."/vendor/autoload.php",
     ];
 
     foreach ($paths as $path) {
@@ -29,7 +29,7 @@ if (\function_exists("cli_set_process_title")) {
     }
 
     if (!isset($autoloadPath)) {
-        \trigger_error("Could not locate autoload.php in any of the following files: " . \implode(", ", $paths), E_USER_ERROR);
+        \trigger_error("Could not locate autoload.php in any of the following files: ".\implode(", ", $paths), E_USER_ERROR);
         exit(1);
     }
 
@@ -61,12 +61,58 @@ if (\function_exists("cli_set_process_title")) {
         $key .= $chunk;
     } while (\strlen($key) < Process::KEY_LENGTH);
 
-    if (!$socket = \stream_socket_client($uri, $errno, $errstr, 5, \STREAM_CLIENT_CONNECT)) {
-        \trigger_error("Could not connect to IPC socket", E_USER_ERROR);
-        exit(1);
+    if (\strpos($uri, 'tcp://') === false && \strpos($uri, 'unix://') === false) {
+        $suffix = \bin2hex(\random_bytes(10));
+        $prefix = \sys_get_temp_dir()."/amp-".$suffix.".fifo";
+
+        if (\strlen($prefix) > 0xFFFF) {
+            \trigger_error("Prefix is too long!", E_USER_ERROR);
+            exit(1);
+        }
+
+        $sockets = [
+            $prefix."2",
+            $prefix."1",
+        ];
+        foreach ($sockets as $k => &$socket) {
+            if (!\posix_mkfifo($socket, 0777)) {
+                \trigger_error("Could not create FIFO client socket", E_USER_ERROR);
+                exit(1);
+            }
+
+            \register_shutdown_function(static function () use ($socket): void {
+                @\unlink($socket);
+            });
+
+            if (!$socket = \fopen($socket, 'r+')) { // Open in r+w mode to prevent blocking if there is no reader
+                \trigger_error("Could not open FIFO client socket", E_USER_ERROR);
+                exit(1);
+            }
+        }
+
+        if (!$tempSocket = \fopen($uri, 'r+')) { // Open in r+w mode to prevent blocking if there is no reader
+            \trigger_error("Could not connect to FIFO server", E_USER_ERROR);
+            exit(1);
+        }
+        \stream_set_blocking($tempSocket, false);
+        \stream_set_write_buffer($tempSocket, 0);
+
+        if (!\fwrite($tempSocket, \pack('v', \strlen($prefix)).$prefix)) {
+            \trigger_error("Failure sending request to FIFO server", E_USER_ERROR);
+            exit(1);
+        }
+        \fclose($tempSocket);
+        $tempSocket = null;
+
+        $channel = new Sync\ChannelledSocket(...$sockets);
+    } else {
+        if (!$socket = \stream_socket_client($uri, $errno, $errstr, 5, \STREAM_CLIENT_CONNECT)) {
+            \trigger_error("Could not connect to IPC socket", E_USER_ERROR);
+            exit(1);
+        }
+        $channel = new Sync\ChannelledSocket($socket, $socket);
     }
 
-    $channel = new Sync\ChannelledSocket($socket, $socket);
 
     try {
         Promise\wait($channel->send($key));
@@ -92,7 +138,7 @@ if (\function_exists("cli_set_process_title")) {
         } catch (\TypeError $exception) {
             throw new \Error(\sprintf("Script '%s' did not return a callable function", $argv[0]), 0, $exception);
         } catch (\ParseError $exception) {
-            throw new \Error(\sprintf("Script '%s' contains a parse error: " . $exception->getMessage(), $argv[0]), 0, $exception);
+            throw new \Error(\sprintf("Script '%s' contains a parse error: ".$exception->getMessage(), $argv[0]), 0, $exception);
         }
 
         $result = new Sync\ExitSuccess(Promise\wait(call($callable, $channel)));
