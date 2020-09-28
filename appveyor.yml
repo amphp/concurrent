@@ -8,21 +8,21 @@ platform:
 clone_folder: c:\projects\amphp
 
 cache:
-  - c:\tools\php73 -> appveyor.yml
+  - c:\tools\php74 -> appveyor.yml
 
 init:
-  - SET PATH=C:\Program Files\OpenSSL;c:\tools\php73;%PATH%
+  - SET PATH=C:\Program Files\OpenSSL;c:\tools\php74;%PATH%
   - SET COMPOSER_NO_INTERACTION=1
   - SET PHP=1
   - SET ANSICON=121x90 (121x90)
 
 install:
-  - IF EXIST c:\tools\php73 (SET PHP=0)
+  - IF EXIST c:\tools\php74 (SET PHP=0)
   - IF %PHP%==1 sc config wuauserv start= auto
   - IF %PHP%==1 net start wuauserv
   - IF %PHP%==1 cinst -y OpenSSL.Light
   - IF %PHP%==1 cinst -y php
-  - cd c:\tools\php73
+  - cd c:\tools\php74
   - IF %PHP%==1 copy php.ini-production php.ini /Y
   - IF %PHP%==1 echo date.timezone="UTC" >> php.ini
   - IF %PHP%==1 echo extension_dir=ext >> php.ini
