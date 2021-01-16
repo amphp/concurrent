@@ -80,9 +80,13 @@ final class Process implements Context
             "log_errors" => "1",
         ];
 
+        $otherOpts = [];
         if ($binary === null) {
             if (\PHP_SAPI === "cli") {
                 $binary = \PHP_BINARY;
+            } else if (\PHP_SAPI === "phpdbg") {
+                $binary = \PHP_BINARY;
+                $otherOpts []= '-qrr';
             } else {
                 $binary = self::$binaryPath ?? self::locateBinary();
             }
@@ -136,7 +140,7 @@ final class Process implements Context
 
         $command = \implode(" ", [
             \escapeshellarg($binary),
-            $this->formatOptions($options),
+            $this->formatOptions($options, $otherOpts),
             \escapeshellarg($scriptPath),
             $this->hub->getUri(),
             $script,
@@ -163,9 +167,9 @@ final class Process implements Context
         throw new \Error("Could not locate PHP executable binary");
     }
 
-    private function formatOptions(array $options): string
+    private function formatOptions(array $options, array $otherOpts): string
     {
-        $result = [];
+        $result = $otherOpts;
 
         foreach ($options as $option => $value) {
             $result[] = \sprintf("-d%s=%s", $option, $value);
